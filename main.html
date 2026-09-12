@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IAlligator</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="script.js" defer></script>
 </head>
 <body>
     <div class="chat-container">
@@ -13,19 +14,15 @@
         <span>IAlligator</span>
     </header>
 
-    <main class="chat-history">
-        <div class="message user-message">
-            Exemplo de mensagem do usuário
-        </div>
-
+    <main class="chat-history" id="chatHistory" aria-live="polite">
         <div class="message ai-message">
-            Exemplo de mensagem da IA
+            Olá! Faça uma pergunta sobre as Copas do Mundo!
         </div>
     </main>
 
     <footer class="chat-input-area">
-        <input type="text" placeholder="Digite sua pergunta..." />
-        <button type="button">Enviar</button>
+        <input type="text" id="questionInput" placeholder="Digite sua pergunta..." autocomplete="off" />
+        <button type="button" id="sendButton">Enviar</button>
     </footer>
     </div>
 </body>

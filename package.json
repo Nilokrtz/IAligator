@@ -8,9 +8,9 @@
     "dev": "node --watch server.js"
   },
   "dependencies": {
+    "@google/genai": "^1.16.0",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "openai": "^4.38.0",
-    "sqlite3": "^5.1.7"
+    "mysql2": "^3.24.4"
   }
 }

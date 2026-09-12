@@ -58,7 +58,10 @@ async function sendQuestion() {
 
     addMessage(data.answer || 'Sem resposta disponível.', 'ai');
   } catch (error) {
-    addMessage(error.message || 'Não foi possível responder.', 'ai');
+    const message = error instanceof TypeError && error.message === 'Failed to fetch'
+      ? 'Não foi possível conectar ao servidor. Execute npm start e verifique se o MySQL está ativo.'
+      : error.message || 'Não foi possível responder.';
+    addMessage(message, 'ai');
   } finally {
     setLoading(false);
   }
