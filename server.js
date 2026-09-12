@@ -35,49 +35,101 @@ function normalizeQuestion(question) {
     .trim();
 }
 
+function extractYear(normalizedQuestion) {
+  const matchFull = normalizedQuestion.match(/\b(19\d{2}|20\d{2})\b/);
+  if (matchFull) return matchFull[1];
+
+  const matchShort = normalizedQuestion.match(/\b(?:de|em|\')\s*(\d{2})\b/);
+  if (matchShort) {
+    const twoDigits = parseInt(matchShort[1], 10);
+    return twoDigits <= 30 ? `20${matchShort[1]}` : `19${matchShort[1]}`;
+  }
+
+  return null;
+}
+
 function getSearchTerm(question) {
   return question
     .replace(/\b(19\d{2}|20\d{2})\b/g, '')
-    .replace(/\b(quem|qual|quais|quantos|quantas|me|mostre|mostrar|listar|lista|jogador|jogadores|selecao|selecoes|copa|copas|ano|anos|gol|gols|artilharia|assistencia|assistencias|partida|partidas|minuto|minutos|cartao|cartoes|desempenho|fez|fizeram|do|da|dos|das|de|o|a|os|as|no|na|nos|nas|em|um|uma|com|teve|tem|foram|foi|faca|fazer|para|por|mais|melhor|melhores)\b/g, ' ')
+    .replace(/\b(quem|qual|quais|quantos|quantas|me|mostre|mostrar|listar|lista|jogador|jogadores|selecao|selecoes|copa|copas|ano|anos|gol|gols|artilharia|artilheiro|artilheiros|assistencia|assistencias|partida|partidas|minuto|minutos|cartao|cartoes|amarelo|amarelos|vermelho|vermelhos|desempenho|fez|fizeram|marcou|marcaram|deu|deram|teve|tiveram|do|da|dos|das|de|o|a|os|as|no|na|nos|nas|em|um|uma|com|tem|foram|foi|faca|fazer|para|por|mais|menos|maior|melhor|melhores|pior|piores|mundo|geral|historico|historica|edicao|edicoes|vez|vezes|total)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 async function getRelevantContext(question) {
   const normalizedQuestion = normalizeQuestion(question);
-  const year = normalizedQuestion.match(/\b(19\d{2}|20\d{2})\b/)?.[1] || null;
+  const year = extractYear(normalizedQuestion);
   const searchTerm = getSearchTerm(normalizedQuestion);
-  const params = [];
 
-  if (/\b(copa|copas|sede|ano)\b/.test(normalizedQuestion) && !/jogador|gol|assist|minuto|cartao|partida/.test(normalizedQuestion)) {
+  if (/o que (tem|voce tem|voce sabe)|quais dados|sobre o que|informacoes voce tem/.test(normalizedQuestion)) {
+    return [
+      {
+        tabelas: 'dim_copa, dim_selecao, dim_jogador, dim_posicao, fato_desempenho_jogador',
+        dados: 'Sedes e anos das Copas, jogadores, selecoes, gols, assistencias (a partir de 1998), minutos jogados, partidas e cartoes amarelos e vermelhos.'
+      }
+    ];
+  }
+
+  if (/\b(copa|copas|sede|sedes)\b/.test(normalizedQuestion) && !/jogador|gol|artilh|assist|minuto|cartao|partida|selecao|pais/.test(normalizedQuestion)) {
     if (year) {
       return allQuery(
         'SELECT ID_Copa AS id_copa, Ano AS ano, Sede AS sede FROM dim_copa WHERE Ano = ? ORDER BY Ano',
         [year]
       );
     }
-
     return allQuery('SELECT ID_Copa AS id_copa, Ano AS ano, Sede AS sede FROM dim_copa ORDER BY Ano');
   }
 
-  if (/\b(selecao|selecoes|pais|paises)\b/.test(normalizedQuestion) && !/jogador|gol|assist|minuto|cartao|partida/.test(normalizedQuestion)) {
+  if (/mais (vezes|edicoes|participou|apareceu)|maior participac/.test(normalizedQuestion) && /selecao|selecoes|pais|paises/.test(normalizedQuestion)) {
+    return allQuery(`
+      SELECT s.Nome_Selecao AS selecao, COUNT(DISTINCT f.ID_Copa) AS total_edicoes
+      FROM fato_desempenho_jogador f
+      INNER JOIN dim_selecao s ON s.ID_Selecao = f.ID_Selecao
+      GROUP BY s.ID_Selecao, s.Nome_Selecao
+      ORDER BY total_edicoes DESC
+      LIMIT 10
+    `);
+  }
+
+  if (/quant(os|as)|total de/.test(normalizedQuestion) && year && !/jogador/.test(normalizedQuestion)) {
+    if (/assist/.test(normalizedQuestion)) {
+      return allQuery(`
+        SELECT c.Ano AS copa, SUM(f.Assistencias) AS total_assistencias
+        FROM fato_desempenho_jogador f
+        INNER JOIN dim_copa c ON c.ID_Copa = f.ID_Copa
+        WHERE c.Ano = ?
+        GROUP BY c.Ano
+      `, [year]);
+    }
+    if (/gol/.test(normalizedQuestion)) {
+      return allQuery(`
+        SELECT c.Ano AS copa, SUM(f.Gols) AS total_gols
+        FROM fato_desempenho_jogador f
+        INNER JOIN dim_copa c ON c.ID_Copa = f.ID_Copa
+        WHERE c.Ano = ?
+        GROUP BY c.Ano
+      `, [year]);
+    }
+  }
+
+  if (/\b(selecao|selecoes|pais|paises)\b/.test(normalizedQuestion) && !/jogador|gol|artilh|assist|minuto|cartao|partida/.test(normalizedQuestion)) {
     return allQuery(
-      `
-        SELECT DISTINCT s.ID_Selecao AS id_selecao, s.Nome_Selecao AS selecao, s.Sigla AS sigla
-        FROM dim_selecao s
-        INNER JOIN fato_desempenho_jogador f ON f.ID_Selecao = s.ID_Selecao
-        ORDER BY s.Nome_Selecao
-      `
+      `SELECT DISTINCT s.ID_Selecao AS id_selecao, s.Nome_Selecao AS selecao, s.Sigla AS sigla
+       FROM dim_selecao s
+       INNER JOIN fato_desempenho_jogador f ON f.ID_Selecao = s.ID_Selecao
+       ORDER BY s.Nome_Selecao`
     );
   }
 
   const filters = [];
+  const params = [];
+
   if (year) {
     filters.push('c.Ano = ?');
     params.push(year);
   }
 
-  if (searchTerm) {
+  if (searchTerm && searchTerm.length >= 3 && !/assist|gol|cartao|amarel|vermelh|minut/.test(searchTerm)) {
     filters.push(`(
       LOWER(j.Nome_Jogador) LIKE ? OR
       LOWER(s.Nome_Selecao) LIKE ? OR
@@ -97,49 +149,94 @@ async function getRelevantContext(question) {
     LEFT JOIN dim_posicao p ON p.ID_Posicao = f.ID_Posicao
   `;
 
-  if (/gol|gols|artilh|marcou/.test(normalizedQuestion)) {
+  if (/selecao|selecoes|pais|paises/.test(normalizedQuestion) && /gol|gols|marcou|marcaram/.test(normalizedQuestion) && !/jogador/.test(normalizedQuestion)) {
     return allQuery(
-      `
-        SELECT j.Nome_Jogador AS jogador, s.Nome_Selecao AS selecao,
-               SUM(f.Gols) AS gols, SUM(f.Partidas_Jogadas) AS partidas
-        ${joins}
-        ${whereClause}
-        GROUP BY j.ID_Jogador, j.Nome_Jogador, s.Nome_Selecao
-        ORDER BY gols DESC, partidas DESC
-        LIMIT 20
-      `,
+      `SELECT s.Nome_Selecao AS selecao, c.Ano AS copa, SUM(f.Gols) AS total_gols
+       ${joins}
+       ${whereClause}
+       GROUP BY s.ID_Selecao, s.Nome_Selecao, c.Ano
+       ORDER BY total_gols DESC
+       LIMIT 10`,
       params
     );
   }
 
   if (/assist/.test(normalizedQuestion)) {
     return allQuery(
-      `
-        SELECT j.Nome_Jogador AS jogador, s.Nome_Selecao AS selecao,
-               SUM(f.Assistencias) AS assistencias, SUM(f.Partidas_Jogadas) AS partidas
-        ${joins}
-        ${whereClause}
-        GROUP BY j.ID_Jogador, j.Nome_Jogador, s.Nome_Selecao
-        ORDER BY assistencias DESC, partidas DESC
-        LIMIT 20
-      `,
+      `SELECT j.Nome_Jogador AS jogador, s.Nome_Selecao AS selecao, c.Ano AS copa,
+              SUM(f.Assistencias) AS assistencias, SUM(f.Partidas_Jogadas) AS partidas
+       ${joins}
+       ${whereClause}
+       GROUP BY j.ID_Jogador, j.Nome_Jogador, s.Nome_Selecao, c.Ano
+       ORDER BY assistencias DESC, partidas ASC
+       LIMIT 10`,
+      params
+    );
+  }
+
+  if (/cartao.*vermelh|vermelho/.test(normalizedQuestion)) {
+    return allQuery(
+      `SELECT j.Nome_Jogador AS jogador, s.Nome_Selecao AS selecao, c.Ano AS copa,
+              SUM(f.Cartoes_Vermelhos) AS cartoes_vermelhos, SUM(f.Partidas_Jogadas) AS partidas
+       ${joins}
+       ${whereClause}
+       GROUP BY j.ID_Jogador, j.Nome_Jogador, s.Nome_Selecao, c.Ano
+       ORDER BY cartoes_vermelhos DESC
+       LIMIT 10`,
+      params
+    );
+  }
+
+  if (/cartao.*amarel|amarelo|cartao|cartoes/.test(normalizedQuestion)) {
+    return allQuery(
+      `SELECT j.Nome_Jogador AS jogador, s.Nome_Selecao AS selecao, c.Ano AS copa,
+              SUM(f.Cartoes_Amarelos) AS cartoes_amarelos, SUM(f.Partidas_Jogadas) AS partidas
+       ${joins}
+       ${whereClause}
+       GROUP BY j.ID_Jogador, j.Nome_Jogador, s.Nome_Selecao, c.Ano
+       ORDER BY cartoes_amarelos DESC
+       LIMIT 10`,
+      params
+    );
+  }
+
+  if (/minuto|minutos|mais jogou|tempo/.test(normalizedQuestion)) {
+    return allQuery(
+      `SELECT j.Nome_Jogador AS jogador, s.Nome_Selecao AS selecao, c.Ano AS copa,
+              SUM(f.Minutos_Jogados) AS minutos_jogados, SUM(f.Partidas_Jogadas) AS partidas
+       ${joins}
+       ${whereClause}
+       GROUP BY j.ID_Jogador, j.Nome_Jogador, s.Nome_Selecao, c.Ano
+       ORDER BY minutos_jogados DESC
+       LIMIT 10`,
+      params
+    );
+  }
+
+  if (/gol|gols|artilh|marcou|marcaram/.test(normalizedQuestion)) {
+    return allQuery(
+      `SELECT j.Nome_Jogador AS jogador, s.Nome_Selecao AS selecao, c.Ano AS copa,
+              SUM(f.Gols) AS gols, SUM(f.Partidas_Jogadas) AS partidas
+       ${joins}
+       ${whereClause}
+       GROUP BY j.ID_Jogador, j.Nome_Jogador, s.Nome_Selecao, c.Ano
+       ORDER BY gols DESC, partidas ASC
+       LIMIT 10`,
       params
     );
   }
 
   return allQuery(
-    `
-      SELECT j.Nome_Jogador AS jogador, s.Nome_Selecao AS selecao,
-             p.Nome_Posicao AS posicao, c.Ano AS copa, c.Sede AS sede,
-             f.Partidas_Jogadas AS partidas, f.Titular AS titular,
-             f.Minutos_Jogados AS minutos, f.Gols AS gols,
-             f.Assistencias AS assistencias, f.Cartoes_Amarelos AS cartoes_amarelos,
-             f.Cartoes_Vermelhos AS cartoes_vermelhos
-      ${joins}
-      ${whereClause}
-      ORDER BY c.Ano DESC, f.Gols DESC, f.Minutos_Jogados DESC
-      LIMIT 20
-    `,
+    `SELECT j.Nome_Jogador AS jogador, s.Nome_Selecao AS selecao,
+            p.Nome_Posicao AS posicao, c.Ano AS copa, c.Sede AS sede,
+            f.Partidas_Jogadas AS partidas, f.Titular AS titular,
+            f.Minutos_Jogados AS minutos, f.Gols AS gols,
+            f.Assistencias AS assistencias, f.Cartoes_Amarelos AS cartoes_amarelos,
+            f.Cartoes_Vermelhos AS cartoes_vermelhos
+     ${joins}
+     ${whereClause}
+     ORDER BY c.Ano DESC, f.Gols DESC, f.Minutos_Jogados DESC
+     LIMIT 15`,
     params
   );
 }
@@ -159,21 +256,27 @@ async function getAIResponse(question, context) {
     if (!context || context.length === 0) {
       return 'Não encontrei informações no banco que correspondam à sua pergunta.';
     }
-
-    const firstRow = context[0];
-    if (firstRow && firstRow.total_gasto !== undefined) {
-      return `Com base no banco, o maior faturamento está em ${firstRow.nome} com total de R$ ${Number(firstRow.total_gasto).toFixed(2)}.`;
-    }
-
     return `Com base nos dados do banco, encontrei: ${JSON.stringify(context.slice(0, 3))}.`;
   }
 
-  const interaction = await gemini.interactions.create({
+  const prompt = `Você é um assistente que responde perguntas sobre as Copas do Mundo usando estritamente o contexto retornado do banco de dados MySQL.
+Se não houver dados suficientes ou o retorno for vazio, diga que não encontrou informação suficiente no banco de dados.
+Se o usuário perguntar de assistências antes da Copa de 1998 e os dados estiverem zerados, mencione que os registros oficiais de assistências só foram contabilizados a partir da Copa de 1998.
+IMPORTANTE: Responda em texto simples e contínuo. Não use formatação Markdown, nunca use negrito (** ou __), nem itálico, nem asteriscos como marcadores de lista.
+
+Pergunta do usuário: ${question}
+
+Contexto do banco: ${formattedContext}`;
+
+  const response = await gemini.models.generateContent({
     model: 'gemini-3.6-flash',
-    input: `Você é um assistente que responde somente com base no contexto do banco de dados fornecido. Se não houver dados suficientes, diga que não encontrou informação suficiente.\n\nPergunta do usuário: ${question}\n\nContexto do banco: ${formattedContext}`
+    contents: prompt
   });
 
-  return interaction.output_text?.trim() || 'Não consegui gerar uma resposta.';
+  let rawText = response.text?.trim() || 'Não consegui gerar uma resposta.';
+  rawText = rawText.replace(/\*\*(.*?)\*\*/g, '$1').replace(/__(.*?)__/g, '$1');
+
+  return rawText;
 }
 
 app.use(express.json());
@@ -205,6 +308,14 @@ app.post('/api/chat', async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao processar pergunta:', error);
+
+    if (error.status === 429) {
+      return res.status(429).json({
+        error: 'Limite da API Gemini atingido.',
+        answer: 'O limite de requisições por minuto da IA foi atingido. Aguarde cerca de 1 minuto antes de enviar outra pergunta.'
+      });
+    }
+
     const databaseUnavailable = ['ECONNREFUSED', 'ENOTFOUND', 'ER_ACCESS_DENIED_ERROR'].includes(error.code);
     res.status(databaseUnavailable ? 503 : 500).json({
       error: databaseUnavailable
