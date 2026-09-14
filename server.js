@@ -70,7 +70,62 @@ async function getRelevantContext(question) {
     ];
   }
 
-  if (/\b(copa|copas|sede|sedes)\b/.test(normalizedQuestion) && !/jogador|gol|artilh|assist|minuto|cartao|partida|selecao|pais/.test(normalizedQuestion)) {
+  if (/(gol|golz|assist|cartao|cartoes|minuto|partida|jogo)/.test(normalizedQuestion) &&
+    /(mais|maior|lider|artilheiro|top|melhor|recordista|campeao de)/.test(normalizedQuestion) &&
+    /jogador/.test(normalizedQuestion)) {
+
+  // Mapeia palavra-chave da pergunta -> coluna do banco + rótulo amigável
+  const statMap = [
+    { regex: /cartao amarelo|cartoes amarelos/, column: 'Cartoes_Amarelos', label: 'cartoes_amarelos' },
+    { regex: /cartao vermelho|cartoes vermelhos/, column: 'Cartoes_Vermelhos', label: 'cartoes_vermelhos' },
+    { regex: /cartao|cartoes/, column: 'Cartoes_Amarelos', label: 'cartoes_amarelos' }, 
+    { regex: /assist/, column: 'Assistencias', label: 'assistencias' },
+    { regex: /minuto|tempo de jogo|tempo em campo/, column: 'Minutos_Jogados', label: 'minutos_jogados' },
+    { regex: /partida|partidas|jogo|jogos|jogou|disputou|atuou/, column: 'Partidas_Jogadas', label: 'partidas_jogadas' },
+    { regex: /gol/, column: 'Gols', label: 'gols' },
+  ];
+
+  const stat = statMap.find(s => s.regex.test(normalizedQuestion));
+
+  if (stat) {
+    const isAscending = /menos|pior|menor/.test(normalizedQuestion);
+    const order = isAscending ? 'ASC' : 'DESC';
+
+    if (year) {
+      return allQuery(`
+        SELECT 
+          j.Nome_Jogador AS jogador, 
+          s.Nome_Selecao AS selecao,
+          c.Ano AS copa,
+          f.${stat.column} AS ${stat.label}
+        FROM fato_desempenho_jogador f
+        INNER JOIN dim_jogador j ON j.ID_Jogador = f.ID_Jogador
+        INNER JOIN dim_selecao s ON s.ID_Selecao = f.ID_Selecao
+        INNER JOIN dim_copa c ON c.ID_Copa = f.ID_Copa
+        WHERE c.Ano = ? AND f.${stat.column} IS NOT NULL
+        ORDER BY f.${stat.column} ${order}
+        LIMIT 5
+      `, [year]);
+    }
+
+    return allQuery(`
+      SELECT 
+        j.Nome_Jogador AS jogador, 
+        s.Nome_Selecao AS selecao,
+        c.Ano AS copa,
+        f.${stat.column} AS ${stat.label}
+      FROM fato_desempenho_jogador f
+      INNER JOIN dim_jogador j ON j.ID_Jogador = f.ID_Jogador
+      INNER JOIN dim_selecao s ON s.ID_Selecao = f.ID_Selecao
+      INNER JOIN dim_copa c ON c.ID_Copa = f.ID_Copa
+      WHERE f.${stat.column} IS NOT NULL
+      ORDER BY f.${stat.column} ${order}
+      LIMIT 5
+    `);
+  }
+}
+
+  if (/\b(copa|copas|sede|sedes)\b/.test(normalizedQuestion) && !/jogador|gol|artilh|assist|minuto|cartao|cartoes|partida|selecao|pais/.test(normalizedQuestion)) {
     if (year) {
       return allQuery(
         'SELECT ID_Copa AS id_copa, Ano AS ano, Sede AS sede FROM dim_copa WHERE Ano = ? ORDER BY Ano',
@@ -80,7 +135,7 @@ async function getRelevantContext(question) {
     return allQuery('SELECT ID_Copa AS id_copa, Ano AS ano, Sede AS sede FROM dim_copa ORDER BY Ano');
   }
 
-  if (/mais (vezes|edicoes|participou|apareceu)|maior participac/.test(normalizedQuestion) && /selecao|selecoes|pais|paises/.test(normalizedQuestion)) {
+  if (/mais (vezes|edicoes|participou|apareceu|jogou|disputou|atuou)|maior participac/.test(normalizedQuestion) && /selecao|selecoes|pais|paises/.test(normalizedQuestion)) {
     return allQuery(`
       SELECT s.Nome_Selecao AS selecao, COUNT(DISTINCT f.ID_Copa) AS total_edicoes
       FROM fato_desempenho_jogador f
@@ -91,10 +146,71 @@ async function getRelevantContext(question) {
     `);
   }
 
-  if (/quant(os|as)|total de/.test(normalizedQuestion) && year && !/jogador/.test(normalizedQuestion)) {
+ if (/mais velho|mais idoso|maior idade/.test(normalizedQuestion) && /jogador/.test(normalizedQuestion)) {
+  return allQuery(`
+    SELECT 
+      j.Nome_Jogador AS jogador, 
+      f.Idade_na_Copa AS idade,
+      s.Nome_Selecao AS selecao,
+      c.Ano AS copa
+    FROM fato_desempenho_jogador f
+    INNER JOIN dim_jogador j ON j.ID_Jogador = f.ID_Jogador
+    INNER JOIN dim_selecao s ON s.ID_Selecao = f.ID_Selecao
+    INNER JOIN dim_copa c ON c.ID_Copa = f.ID_Copa
+    WHERE f.Idade_na_Copa IS NOT NULL
+    ORDER BY f.Idade_na_Copa DESC
+    LIMIT 5
+  `);
+}
+
+if (/mais novo|mais jovem|menor idade/.test(normalizedQuestion) && /jogador/.test(normalizedQuestion)) {
+  return allQuery(`
+    SELECT 
+      j.Nome_Jogador AS jogador, 
+      f.Idade_na_Copa AS idade,
+      s.Nome_Selecao AS selecao,
+      c.Ano AS copa
+    FROM fato_desempenho_jogador f
+    INNER JOIN dim_jogador j ON j.ID_Jogador = f.ID_Jogador
+    INNER JOIN dim_selecao s ON s.ID_Selecao = f.ID_Selecao
+    INNER JOIN dim_copa c ON c.ID_Copa = f.ID_Copa
+    WHERE f.Idade_na_Copa IS NOT NULL
+    ORDER BY f.Idade_na_Copa ASC
+    LIMIT 5
+  `);
+}
+
+  if (/quant(os|as)|total de|numero de/.test(normalizedQuestion) && year && !/jogador/.test(normalizedQuestion)) {
     if (/assist/.test(normalizedQuestion)) {
       return allQuery(`
         SELECT c.Ano AS copa, SUM(f.Assistencias) AS total_assistencias
+        FROM fato_desempenho_jogador f
+        INNER JOIN dim_copa c ON c.ID_Copa = f.ID_Copa
+        WHERE c.Ano = ?
+        GROUP BY c.Ano
+      `, [year]);
+    }
+    if (/cartao vermelho|cartoes vermelhos/.test(normalizedQuestion)) {
+      return allQuery(`
+        SELECT c.Ano AS copa, SUM(f.Cartoes_Vermelhos) AS total_cartoes_vermelhos
+        FROM fato_desempenho_jogador f
+        INNER JOIN dim_copa c ON c.ID_Copa = f.ID_Copa
+        WHERE c.Ano = ?
+        GROUP BY c.Ano
+      `, [year]);
+    }
+    if (/cartao|cartoes/.test(normalizedQuestion)) {
+      return allQuery(`
+        SELECT c.Ano AS copa, SUM(f.Cartoes_Amarelos) AS total_cartoes_amarelos
+        FROM fato_desempenho_jogador f
+        INNER JOIN dim_copa c ON c.ID_Copa = f.ID_Copa
+        WHERE c.Ano = ?
+        GROUP BY c.Ano
+      `, [year]);
+    }
+    if (/minuto/.test(normalizedQuestion)) {
+      return allQuery(`
+        SELECT c.Ano AS copa, SUM(f.Minutos_Jogados) AS total_minutos
         FROM fato_desempenho_jogador f
         INNER JOIN dim_copa c ON c.ID_Copa = f.ID_Copa
         WHERE c.Ano = ?
@@ -112,7 +228,7 @@ async function getRelevantContext(question) {
     }
   }
 
-  if (/\b(selecao|selecoes|pais|paises)\b/.test(normalizedQuestion) && !/jogador|gol|artilh|assist|minuto|cartao|partida/.test(normalizedQuestion)) {
+  if (/\b(selecao|selecoes|pais|paises)\b/.test(normalizedQuestion) && !/jogador|gol|artilh|assist|minuto|cartao|cartoes|partida/.test(normalizedQuestion)) {
     return allQuery(
       `SELECT DISTINCT s.ID_Selecao AS id_selecao, s.Nome_Selecao AS selecao, s.Sigla AS sigla
        FROM dim_selecao s
@@ -129,7 +245,7 @@ async function getRelevantContext(question) {
     params.push(year);
   }
 
-  if (searchTerm && searchTerm.length >= 3 && !/assist|gol|cartao|amarel|vermelh|minut/.test(searchTerm)) {
+  if (searchTerm && searchTerm.length >= 3 && !/assist|gol|cartao|cartoes|amarel|vermelh|minut/.test(searchTerm)) {
     filters.push(`(
       LOWER(j.Nome_Jogador) LIKE ? OR
       LOWER(s.Nome_Selecao) LIKE ? OR
@@ -149,7 +265,7 @@ async function getRelevantContext(question) {
     LEFT JOIN dim_posicao p ON p.ID_Posicao = f.ID_Posicao
   `;
 
-  if (/selecao|selecoes|pais|paises/.test(normalizedQuestion) && /gol|gols|marcou|marcaram/.test(normalizedQuestion) && !/jogador/.test(normalizedQuestion)) {
+  if (/selecao|selecoes|pais|paises/.test(normalizedQuestion) && /gol|gols|marcou|marcaram|fez gol|fizeram gols|balancou as redes/.test(normalizedQuestion) && !/jogador/.test(normalizedQuestion)) {
     return allQuery(
       `SELECT s.Nome_Selecao AS selecao, c.Ano AS copa, SUM(f.Gols) AS total_gols
        ${joins}
@@ -200,7 +316,20 @@ async function getRelevantContext(question) {
     );
   }
 
-  if (/minuto|minutos|mais jogou|tempo/.test(normalizedQuestion)) {
+  if (/partida|partidas|jogou mais|mais jogou|disputou mais|mais disputou|atuou mais|mais atuou/.test(normalizedQuestion) && !/minuto|minutos|tempo/.test(normalizedQuestion)) {
+    return allQuery(
+      `SELECT j.Nome_Jogador AS jogador, s.Nome_Selecao AS selecao, c.Ano AS copa,
+              SUM(f.Partidas_Jogadas) AS partidas, SUM(f.Minutos_Jogados) AS minutos_jogados
+       ${joins}
+       ${whereClause}
+       GROUP BY j.ID_Jogador, j.Nome_Jogador, s.Nome_Selecao, c.Ano
+       ORDER BY partidas DESC, minutos_jogados DESC
+       LIMIT 10`,
+      params
+    );
+  }
+
+  if (/minuto|minutos|tempo de jogo|tempo em campo|tempo/.test(normalizedQuestion)) {
     return allQuery(
       `SELECT j.Nome_Jogador AS jogador, s.Nome_Selecao AS selecao, c.Ano AS copa,
               SUM(f.Minutos_Jogados) AS minutos_jogados, SUM(f.Partidas_Jogadas) AS partidas
@@ -213,7 +342,7 @@ async function getRelevantContext(question) {
     );
   }
 
-  if (/gol|gols|artilh|marcou|marcaram/.test(normalizedQuestion)) {
+  if (/gol|gols|artilh|marcou|marcaram|fez gol|fizeram gols|goleador/.test(normalizedQuestion)) {
     return allQuery(
       `SELECT j.Nome_Jogador AS jogador, s.Nome_Selecao AS selecao, c.Ano AS copa,
               SUM(f.Gols) AS gols, SUM(f.Partidas_Jogadas) AS partidas
@@ -260,23 +389,49 @@ async function getAIResponse(question, context) {
   }
 
   const prompt = `Você é um assistente que responde perguntas sobre as Copas do Mundo usando estritamente o contexto retornado do banco de dados MySQL.
-Se não houver dados suficientes ou o retorno for vazio, diga que não encontrou informação suficiente no banco de dados.
-Se o usuário perguntar de assistências antes da Copa de 1998 e os dados estiverem zerados, mencione que os registros oficiais de assistências só foram contabilizados a partir da Copa de 1998.
+
+IMPORTANTE SOBRE FALHAS NA BASE: esta base de dados foi construída a partir de uma fonte que possui diversas falhas e lacunas de preenchimento — vários campos estatísticos (como assistências, cartões, minutos, etc.) estão nulos ou ausentes para determinadas Copas ou jogadores, mesmo quando deveriam existir. Isso é uma limitação conhecida dos dados de origem, não um erro do sistema.
+Se o contexto retornado vier vazio ou com valores nulos para o que foi perguntado, NÃO diga apenas "não encontrei informação suficiente". Em vez disso, explique que a base de dados utilizada possui falhas de preenchimento e que o dado solicitado não está disponível para essa Copa ou jogador especificamente por causa dessa limitação da fonte original.
+Se não houver dados suficientes ou o retorno for vazio, diga que não encontrou informação suficiente no banco de dados, mas atribua eventualmente essa ausência a falhas de preenchimento na base original, especialmente quando a lacuna é pontual dentro de uma série de outros anos que têm dados completos (ex: assistências ausentes numa Copa específica, mas presentes em outras).
 IMPORTANTE: Responda em texto simples e contínuo. Não use formatação Markdown, nunca use negrito (** ou __), nem itálico, nem asteriscos como marcadores de lista.
 
 Pergunta do usuário: ${question}
 
 Contexto do banco: ${formattedContext}`;
 
-  const response = await gemini.models.generateContent({
-    model: 'gemini-3.6-flash',
-    contents: prompt
-  });
+  const response = await callGeminiWithRetry(prompt);
 
   let rawText = response.text?.trim() || 'Não consegui gerar uma resposta.';
   rawText = rawText.replace(/\*\*(.*?)\*\*/g, '$1').replace(/__(.*?)__/g, '$1');
 
   return rawText;
+}
+
+async function callGeminiWithRetry(prompt, maxRetries = 3) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await gemini.models.generateContent({
+        model: 'gemini-3.6-flash',
+        contents: prompt
+      });
+    } catch (error) {
+      lastError = error;
+      const isOverloaded = error.status === 503 || error.message?.includes('UNAVAILABLE');
+
+      if (isOverloaded && attempt < maxRetries) {
+        const waitTime = attempt * 1000;
+        console.log(`Gemini sobrecarregado, tentando novamente em ${waitTime}ms (tentativa ${attempt}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError;
 }
 
 app.use(express.json());
