@@ -1,4 +1,9 @@
 node_modules/
 .env
+.env.*
+IAligattor/
 .DS_Store
 *.log
+faiss_index/
+__pycache__/
+.venv/
