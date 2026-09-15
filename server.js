@@ -18,9 +18,28 @@ const db = mysql.createPool({
   charset: 'utf8mb4'
 });
 
-const gemini = process.env.GEMINI_API_KEY
-  ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
-  : null;
+// Suporte a múltiplas chaves e provedores de IA
+const geminiApiKeys = Array.from(new Set([
+  process.env.GEMINI_API_KEY,
+  ...(process.env.GEMINI_API_KEYS || '').split(',')
+])).map(k => k?.trim()).filter(Boolean);
+
+const openRouterApiKey = (process.env.OPENROUTER_API_KEY || '').trim();
+
+// Modelos do Gemini: principal + 2 reservas testados e ativos
+const GEMINI_MODELS = [
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite'
+];
+
+// Modelo de contingência OpenRouter
+const OPENROUTER_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
+
+// Cache em memória (TTL: 5 minutos) para poupar requisições idênticas
+const responseCache = new Map();
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
 
 async function allQuery(sql, params = []) {
   const [rows] = await db.execute(sql, params);
@@ -378,10 +397,116 @@ function formatContext(context) {
   return JSON.stringify(context, null, 2);
 }
 
+async function callOpenRouter(prompt) {
+  if (!openRouterApiKey) {
+    throw new Error('OPENROUTER_API_KEY não configurada no .env.');
+  }
+
+  const { OpenRouter } = await import('@openrouter/sdk');
+  const openrouter = new OpenRouter({ apiKey: openRouterApiKey });
+
+  const stream = await openrouter.chat.send({
+    chatRequest: {
+      model: OPENROUTER_MODEL,
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      stream: true
+    }
+  });
+
+  let response = '';
+  for await (const chunk of stream) {
+    const content = chunk.choices[0]?.delta?.content;
+    if (content) {
+      response += content;
+    }
+  }
+
+  const trimmed = response.trim();
+  if (!trimmed) {
+    throw new Error('OpenRouter retornou uma resposta em branco.');
+  }
+
+  return trimmed;
+}
+
+async function callAIWithFallback(prompt) {
+  // 1. Verifica cache para economizar chamadas
+  const cached = responseCache.get(prompt);
+  if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+    console.log('⚡ [Cache] Resposta entregue instantaneamente a partir do cache.');
+    return cached.answer;
+  }
+
+  let lastError;
+
+  // 2. Cascata com Gemini (todas as chaves e modelos reservas)
+  for (let keyIdx = 0; keyIdx < geminiApiKeys.length; keyIdx++) {
+    const currentKey = geminiApiKeys[keyIdx];
+    const aiClient = new GoogleGenAI({ apiKey: currentKey });
+
+    for (const model of GEMINI_MODELS) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          console.log(`🤖 Chamando Gemini (Chave ${keyIdx + 1}/${geminiApiKeys.length}, Modelo: ${model}, Tentativa: ${attempt})...`);
+          const res = await aiClient.models.generateContent({
+            model: model,
+            contents: prompt
+          });
+
+          const text = res.text?.trim();
+          if (text) {
+            responseCache.set(prompt, { answer: text, timestamp: Date.now() });
+            return text;
+          }
+        } catch (error) {
+          lastError = error;
+          const statusStr = String(error.status || error.message || '');
+          const isRateLimit = error.status === 429 || statusStr.includes('429') || statusStr.includes('RESOURCE_EXHAUSTED');
+          const isOverloaded = error.status === 503 || statusStr.includes('503') || statusStr.includes('UNAVAILABLE');
+
+          console.warn(`⚠️ [Gemini] Falha no modelo ${model} (Chave ${keyIdx + 1}): ${error.message || error.status}`);
+
+          if (isOverloaded && attempt < 2) {
+            await new Promise(r => setTimeout(r, 1000));
+            continue;
+          }
+
+          if (isRateLimit) {
+            console.warn(`🛑 [Gemini] Limite 429 atingido no modelo ${model}. Acionando reserva...`);
+            break; // Passa para o próximo modelo/chave
+          }
+
+          break; // Passa para o próximo modelo
+        }
+      }
+    }
+  }
+
+  // 3. Fallback de contingência para OpenRouter
+  if (openRouterApiKey) {
+    try {
+      console.log(`🔄 [Fallback OpenRouter] Tentando provedor secundário com modelo ${OPENROUTER_MODEL}...`);
+      const openRouterText = await callOpenRouter(prompt);
+      responseCache.set(prompt, { answer: openRouterText, timestamp: Date.now() });
+      return openRouterText;
+    } catch (openRouterError) {
+      console.error('❌ [OpenRouter] Falha no provedor de contingência:', openRouterError.message);
+      lastError = openRouterError;
+    }
+  }
+
+  throw lastError || new Error('Todos os modelos de IA e provedores de contingência falharam.');
+}
+
 async function getAIResponse(question, context) {
   const formattedContext = formatContext(context);
 
-  if (!gemini) {
+  if (geminiApiKeys.length === 0 && !openRouterApiKey) {
     if (!context || context.length === 0) {
       return 'Não encontrei informações no banco que correspondam à sua pergunta.';
     }
@@ -399,39 +524,12 @@ Pergunta do usuário: ${question}
 
 Contexto do banco: ${formattedContext}`;
 
-  const response = await callGeminiWithRetry(prompt);
+  const responseText = await callAIWithFallback(prompt);
 
-  let rawText = response.text?.trim() || 'Não consegui gerar uma resposta.';
+  let rawText = responseText || 'Não consegui gerar uma resposta.';
   rawText = rawText.replace(/\*\*(.*?)\*\*/g, '$1').replace(/__(.*?)__/g, '$1');
 
   return rawText;
-}
-
-async function callGeminiWithRetry(prompt, maxRetries = 3) {
-  let lastError;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await gemini.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: prompt
-      });
-    } catch (error) {
-      lastError = error;
-      const isOverloaded = error.status === 503 || error.message?.includes('UNAVAILABLE');
-
-      if (isOverloaded && attempt < maxRetries) {
-        const waitTime = attempt * 1000;
-        console.log(`Gemini sobrecarregado, tentando novamente em ${waitTime}ms (tentativa ${attempt}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        continue;
-      }
-
-      throw error;
-    }
-  }
-
-  throw lastError;
 }
 
 app.use(express.json());
@@ -464,10 +562,11 @@ app.post('/api/chat', async (req, res) => {
   } catch (error) {
     console.error('Erro ao processar pergunta:', error);
 
-    if (error.status === 429) {
+    const isRateLimit = error.status === 429 || String(error.message || '').includes('429') || String(error.message || '').includes('RESOURCE_EXHAUSTED');
+    if (isRateLimit) {
       return res.status(429).json({
-        error: 'Limite da API Gemini atingido.',
-        answer: 'O limite de requisições por minuto da IA foi atingido. Aguarde cerca de 1 minuto antes de enviar outra pergunta.'
+        error: 'Limite da API atingido em todos os modelos.',
+        answer: 'O limite de requisições das IAs foi atingido temporariamente. Aguarde cerca de 1 minuto antes de enviar outra pergunta.'
       });
     }
 
