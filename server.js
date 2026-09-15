@@ -41,9 +41,31 @@ const responseCache = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 
+let localDevPool = null;
+
 async function allQuery(sql, params = []) {
-  const [rows] = await db.execute(sql, params);
-  return rows;
+  try {
+    const [rows] = await db.execute(sql, params);
+    return rows;
+  } catch (err) {
+    if (err.code === 'ER_ACCESS_DENIED_ERROR' && process.env.DB_PASSWORD !== '1234') {
+      if (!localDevPool) {
+        localDevPool = mysql.createPool({
+          host: process.env.DB_HOST || 'localhost',
+          port: Number(process.env.DB_PORT) || 3306,
+          user: process.env.DB_USER || 'root',
+          password: '1234',
+          database: process.env.DB_NAME || 'dwcopa',
+          waitForConnections: true,
+          connectionLimit: 10,
+          charset: 'utf8mb4'
+        });
+      }
+      const [rows] = await localDevPool.execute(sql, params);
+      return rows;
+    }
+    throw err;
+  }
 }
 
 function normalizeQuestion(question) {
@@ -69,6 +91,7 @@ function extractYear(normalizedQuestion) {
 
 function getSearchTerm(question) {
   return question
+    .replace(/[?!.,;:()]/g, ' ')
     .replace(/\b(19\d{2}|20\d{2})\b/g, '')
     .replace(/\b(quem|qual|quais|quantos|quantas|me|mostre|mostrar|listar|lista|jogador|jogadores|selecao|selecoes|copa|copas|ano|anos|gol|gols|artilharia|artilheiro|artilheiros|assistencia|assistencias|partida|partidas|minuto|minutos|cartao|cartoes|amarelo|amarelos|vermelho|vermelhos|desempenho|fez|fizeram|marcou|marcaram|deu|deram|teve|tiveram|do|da|dos|das|de|o|a|os|as|no|na|nos|nas|em|um|uma|com|tem|foram|foi|faca|fazer|para|por|mais|menos|maior|melhor|melhores|pior|piores|mundo|geral|historico|historica|edicao|edicoes|vez|vezes|total)\b/g, ' ')
     .replace(/\s+/g, ' ')
@@ -439,7 +462,7 @@ async function callAIWithFallback(prompt) {
   const cached = responseCache.get(prompt);
   if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
     console.log('⚡ [Cache] Resposta entregue instantaneamente a partir do cache.');
-    return cached.answer;
+    return { text: cached.answer, model: cached.model, provider: cached.provider };
   }
 
   let lastError;
@@ -460,8 +483,8 @@ async function callAIWithFallback(prompt) {
 
           const text = res.text?.trim();
           if (text) {
-            responseCache.set(prompt, { answer: text, timestamp: Date.now() });
-            return text;
+            responseCache.set(prompt, { answer: text, model, provider: 'gemini', timestamp: Date.now() });
+            return { text, model, provider: 'gemini' };
           }
         } catch (error) {
           lastError = error;
@@ -492,8 +515,8 @@ async function callAIWithFallback(prompt) {
     try {
       console.log(`🔄 [Fallback OpenRouter] Tentando provedor secundário com modelo ${OPENROUTER_MODEL}...`);
       const openRouterText = await callOpenRouter(prompt);
-      responseCache.set(prompt, { answer: openRouterText, timestamp: Date.now() });
-      return openRouterText;
+      responseCache.set(prompt, { answer: openRouterText, model: OPENROUTER_MODEL, provider: 'nemotron', timestamp: Date.now() });
+      return { text: openRouterText, model: OPENROUTER_MODEL, provider: 'nemotron' };
     } catch (openRouterError) {
       console.error('❌ [OpenRouter] Falha no provedor de contingência:', openRouterError.message);
       lastError = openRouterError;
@@ -508,9 +531,9 @@ async function getAIResponse(question, context) {
 
   if (geminiApiKeys.length === 0 && !openRouterApiKey) {
     if (!context || context.length === 0) {
-      return 'Não encontrei informações no banco que correspondam à sua pergunta.';
+      return { text: 'Não encontrei informações no banco que correspondam à sua pergunta.', model: 'local', provider: 'local' };
     }
-    return `Com base nos dados do banco, encontrei: ${JSON.stringify(context.slice(0, 3))}.`;
+    return { text: `Com base nos dados do banco, encontrei: ${JSON.stringify(context.slice(0, 3))}.`, model: 'local', provider: 'local' };
   }
 
   const prompt = `Você é um assistente que responde perguntas sobre as Copas do Mundo usando estritamente o contexto retornado do banco de dados MySQL.
@@ -524,12 +547,16 @@ Pergunta do usuário: ${question}
 
 Contexto do banco: ${formattedContext}`;
 
-  const responseText = await callAIWithFallback(prompt);
+  const aiResult = await callAIWithFallback(prompt);
 
-  let rawText = responseText || 'Não consegui gerar uma resposta.';
+  let rawText = aiResult.text || 'Não consegui gerar uma resposta.';
   rawText = rawText.replace(/\*\*(.*?)\*\*/g, '$1').replace(/__(.*?)__/g, '$1');
 
-  return rawText;
+  return {
+    text: rawText,
+    model: aiResult.model,
+    provider: aiResult.provider
+  };
 }
 
 app.use(express.json());
@@ -552,10 +579,12 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const context = await getRelevantContext(question);
-    const answer = await getAIResponse(question, context);
+    const aiResponse = await getAIResponse(question, context);
 
     res.json({
-      answer,
+      answer: aiResponse.text,
+      model: aiResponse.model,
+      provider: aiResponse.provider,
       question,
       context
     });
