@@ -531,17 +531,19 @@ async function getAIResponse(question, context) {
 
   if (geminiApiKeys.length === 0 && !openRouterApiKey) {
     if (!context || context.length === 0) {
-      return { text: 'Não encontrei informações no banco que correspondam à sua pergunta.', model: 'local', provider: 'local' };
+      return { text: 'Não encontrei essa informação no banco de dados.', model: 'local', provider: 'local' };
     }
     return { text: `Com base nos dados do banco, encontrei: ${JSON.stringify(context.slice(0, 3))}.`, model: 'local', provider: 'local' };
   }
 
-  const prompt = `Você é um assistente que responde perguntas sobre as Copas do Mundo usando estritamente o contexto retornado do banco de dados MySQL.
+  const prompt = `Você é um assistente encarregado de responder perguntas sobre as Copas do Mundo estritamente com base nos dados fornecidos do banco de dados MySQL.
 
-IMPORTANTE SOBRE FALHAS NA BASE: esta base de dados foi construída a partir de uma fonte que possui diversas falhas e lacunas de preenchimento — vários campos estatísticos (como assistências, cartões, minutos, etc.) estão nulos ou ausentes para determinadas Copas ou jogadores, mesmo quando deveriam existir. Isso é uma limitação conhecida dos dados de origem, não um erro do sistema.
-Se o contexto retornado vier vazio ou com valores nulos para o que foi perguntado, NÃO diga apenas "não encontrei informação suficiente". Em vez disso, explique que a base de dados utilizada possui falhas de preenchimento e que o dado solicitado não está disponível para essa Copa ou jogador especificamente por causa dessa limitação da fonte original.
-Se não houver dados suficientes ou o retorno for vazio, diga que não encontrou informação suficiente no banco de dados, mas atribua eventualmente essa ausência a falhas de preenchimento na base original, especialmente quando a lacuna é pontual dentro de uma série de outros anos que têm dados completos (ex: assistências ausentes numa Copa específica, mas presentes em outras).
-IMPORTANTE: Responda em texto simples e contínuo. Não use formatação Markdown, nunca use negrito (** ou __), nem itálico, nem asteriscos como marcadores de lista.
+DIRETRIZES DE RESPOSTA:
+1. Seja direto, conciso e sucinto. Responda apenas o que foi perguntado sem introduções desnecessárias.
+2. Se os dados necessários estiverem presentes no contexto, responda a pergunta diretamente usando esses valores.
+3. Se a informação solicitada não estiver presente, se o contexto estiver vazio ou se os valores forem nulos, responda simplesmente: "Não encontrei essa informação no banco de dados."
+4. Não mencione incongruências, falhas na base, limitações da fonte de dados ou problemas internos de preenchimento.
+5. Formatação: responda em texto simples e contínuo. Não utilize formatação Markdown (nunca use negrito **, itálico _, cabeçalhos # ou marcadores de lista com asterisco).
 
 Pergunta do usuário: ${question}
 
@@ -549,7 +551,7 @@ Contexto do banco: ${formattedContext}`;
 
   const aiResult = await callAIWithFallback(prompt);
 
-  let rawText = aiResult.text || 'Não consegui gerar uma resposta.';
+  let rawText = aiResult.text || 'Não encontrei essa informação no banco de dados.';
   rawText = rawText.replace(/\*\*(.*?)\*\*/g, '$1').replace(/__(.*?)__/g, '$1');
 
   return {
