@@ -1,30 +1,32 @@
-# 🐊 IAligator — Inteligência Artificial & Data Warehouse da Copa do Mundo
+# 🐊 IAligator — Inteligência Artificial, RAG & Data Warehouse da Copa do Mundo
 
 <div align="center">
 
   <img src="logo.png" alt="IAligator Logo" width="220" />
 
   <p align="center">
-    <strong>Seu assistente inteligente de ponta a ponta sobre a história das Copas do Mundo FIFA (1930 – 2022).</strong>
+    <strong>Seu ecossistema analítico inteligente sobre a história completa das Copas do Mundo FIFA (1930 – 2022).</strong>
   </p>
 
   <p align="center">
     <a href="#-visão-geral">Visão Geral</a> •
-    <a href="#-principais-recursos">Recursos</a> •
-    <a href="#-arquitetura-do-sistema">Arquitetura</a> •
+    <a href="#-duas-modalidades-de-uso">Modalidades</a> •
+    <a href="#-arquitetura-do-sistema">Arquiteturas</a> •
     <a href="#-data-warehouse-esquema-estrela">Data Warehouse</a> •
     <a href="#-dashboard-power-bi">Power BI</a> •
-    <a href="#-cascata-de-ias-e-resiliência">Cascata de IAs</a> •
-    <a href="#-instalação-e-execução">Como Rodar</a> •
-    <a href="#-rotas-da-api">API</a>
+    <a href="#-como-executar-o-projeto">Como Rodar</a> •
+    <a href="#-rotas-da-api--cli">API & CLI</a>
   </p>
 
   <p align="center">
     <img src="https://img.shields.io/badge/Node.js-18%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js" />
+    <img src="https://img.shields.io/badge/Python-3.10%20%7C%203.11-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
     <img src="https://img.shields.io/badge/Express-4.19-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express" />
+    <img src="https://img.shields.io/badge/Streamlit-1.35%2B-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit" />
     <img src="https://img.shields.io/badge/MySQL-8.0%2B-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL" />
-    <img src="https://img.shields.io/badge/Google_Gemini-3.6_%26_3.5_Flash-8E75B2?style=for-the-badge&logo=google&logoColor=white" alt="Gemini" />
-    <img src="https://img.shields.io/badge/NVIDIA-Nemotron_Ultra-76B900?style=for-the-badge&logo=nvidia&logoColor=white" alt="NVIDIA" />
+    <img src="https://img.shields.io/badge/FAISS-VectorStore-00599C?style=for-the-badge" alt="FAISS" />
+    <img src="https://img.shields.io/badge/Google_Gemini-Flash-8E75B2?style=for-the-badge&logo=google&logoColor=white" alt="Gemini" />
+    <img src="https://img.shields.io/badge/NVIDIA-Nemotron-76B900?style=for-the-badge&logo=nvidia&logoColor=white" alt="NVIDIA" />
     <img src="https://img.shields.io/badge/Power_BI-Analytics-F2C811?style=for-the-badge&logo=powerbi&logoColor=black" alt="Power BI" />
   </p>
 </div>
@@ -33,50 +35,53 @@
 
 ## 📖 Visão Geral
 
-O **IAligator** é uma solução completa que une **Engenharia de Dados (Data Warehouse Dimensional)**, **Business Intelligence (Power BI)** e **Inteligência Artificial Generativa (LLMs com Fallback Multi-Provedor e RAG Text-to-SQL)** para explorar e responder qualquer questão sobre a história completa das **Copas do Mundo FIFA (1930 a 2022)**.
+O **IAligator** é uma plataforma que integra **Engenharia de Dados (Data Warehouse Dimensional)**, **Business Intelligence (Power BI)** e **Inteligência Artificial Generativa (RAG Híbrido e Fallback Multi-Provedor)** para responder instantaneamente qualquer dúvida histórica sobre todas as edições da **Copa do Mundo da FIFA (1930 a 2022)**.
 
-O projeto elimina a barreira técnica entre bases de dados relacionais e o usuário comum: através de uma interface de chat conversacional moderna e temática, qualquer pessoa pode fazer perguntas em linguagem natural — como *"Quem foi o maior artilheiro de 1970?"*, *"Qual o jogador mais jovem a marcar em uma Copa?"* ou *"Quantos cartões a Argentina tomou em 2022?"* — e receber respostas precisas, fundamentadas estritamente em dados auditáveis, em milissegundos.
+O projeto oferece suporte a mais de **90 anos de futebol**, cobrindo **22 edições**, **mais de 6.270 jogadores convocados**, todas as seleções participantes, gols, assistências, minutagem, penalidades e registros disciplinares.
 
 ---
 
-## 🌟 Principais Recursos
+## 🔄 Duas Modalidades de Uso
 
-- 🏆 **Cobertura Histórica Abrangente**: Mais de 90 anos de mundiais (1930 a 2022), contemplando mais de **6.270 jogadores**, **todas as seleções participantes**, sedes, partidas, minutagem, gols, assistências e disciplina.
-- ⚡ **Orquestração Multi-LLM Resiliente**:
-  - Cascata com 3 modelos de ponta do Google Gemini (`gemini-3.6-flash` ➔ `gemini-3.5-flash` ➔ `gemini-3.5-flash-lite`).
-  - Rotação dinâmica de múltiplas chaves de API (`GEMINI_API_KEY` + pool de reservas).
-  - Contingência automática via **OpenRouter** para **NVIDIA Nemotron 3 Ultra 550B**.
-  - Cache em memória com TTL de 5 minutos para respostas instantâneas sem consumo de quota.
-- 🏷️ **Transparência de IA (Badges Dinâmicos)**: A interface exibe em tempo real qual motor de inteligência artificial gerou cada resposta (Gemini ou NVIDIA Nemotron).
-- 🛡️ **Anti-Alucinação & RAG Determinístico**: A IA responde baseada no contexto extraído do banco MySQL; perguntas fora do escopo ou dados inexistentes são tratados com respostas controladas.
-- 📊 **Dashboard Analítico Power BI Integrado**: Arquivos `.pbit` e `.pdf` prontos com métricas executivas, pirâmides etárias de artilharia, cartões por país e rankings consolidados.
-- 🔌 **Tolerância a Falhas e Auto-Porta**: Inicialização com busca automática por portas disponíveis caso a padrão esteja ocupada (3001, 3002, 3003...).
+O projeto foi projetado com duas frentes complementares de utilização:
+
+| Recurso | 🌐 Modo Web & API (Node.js) | 🧠 Modo RAG Híbrido (Python) |
+| :--- | :--- | :--- |
+| **Interface** | Chat Web moderno com badges dinâmicos de IA | Dashboard reativo em Streamlit (`app.py`) |
+| **Backend** | Node.js + Express.js (`server.js`) | Python + LangChain (`src/rag_chain.py`) |
+| **Recuperação de Dados** | Tradutor semântico NLP + consultas SQL diretas | Busca Híbrida: **FAISS Vetorial** + **BM25 Lexical** |
+| **Embeddings** | — | `sentence-transformers/all-MiniLM-L6-v2` |
+| **Modelos de IA** | Cascata Gemini (3.6 / 3.5) + Fallback NVIDIA Nemotron | Google Gemini (3.8 Flash, 3.6 Flash, 2.5 Flash Lite) |
+| **Resiliência** | Cache em memória (TTL 5 min) + Rotação de chaves | Fallback automático entre 5 modelos Gemini |
+| **BI & Analytics** | Template e relatório Power BI (`.pbit` / `.pdf`) | Fontes documentais contextuais em cada resposta |
 
 ---
 
 ## 🏗️ Arquitetura do Sistema
 
+### 1. Arquitetura da Aplicação Web (Node.js & Express)
+
 ```mermaid
 flowchart TD
     User([👤 Usuário]) <--> UI[💻 Chat Interface - HTML5 / CSS3 / JS]
-    UI <-->|POST /api/chat| Server[🚀 Node.js Express Backend]
+    UI <-->|POST /api/chat| Server[🚀 Servidor Express]
 
-    subgraph Core ["Processamento & Resolução"]
-        Server --> NLP[🔍 Extrator Semântico & Normalizador]
-        NLP -->|SQL Dinâmico| DB[(🗄️ MySQL Data Warehouse\ndwcopa)]
-        DB -->|Contexto JSON| Grounding[🧩 Grounding & Prompt Builder]
+    subgraph Core ["Processamento de Linguagem & Banco"]
+        Server --> NLP[🔍 Normalizador & Extrator Léxico]
+        NLP -->|SQL Otimizado| DB[(🗄️ MySQL Data Warehouse\ndwcopa)]
+        DB -->|Contexto Tabular| Grounding[🧩 Grounding & Prompt Engine]
     end
 
-    subgraph Intelligence ["Pipeline de Inferência Resiliente"]
+    subgraph Intelligence ["Cascata de Resiliência Multi-LLM"]
         Grounding --> Cache{⚡ Cache Hit?}
         Cache -- Sim --> Response[💬 Resposta Formatada + Badge]
-        Cache -- Não --> GeminiPool[✨ Google Gemini Cascade]
+        Cache -- Não --> GeminiCascade[✨ Google Gemini Cascade]
         
-        GeminiPool -->|gemini-3.6-flash| G1[Gemini 3.6 Flash]
-        GeminiPool -. Falha / Rate Limit .->|gemini-3.5-flash| G2[Gemini 3.5 Flash]
-        GeminiPool -. Falha / Rate Limit .->|gemini-3.5-flash-lite| G3[Gemini 3.5 Lite]
+        GeminiCascade -->|gemini-3.6-flash| G1[Gemini 3.6 Flash]
+        GeminiCascade -. Rate Limit 429 .->|gemini-3.5-flash| G2[Gemini 3.5 Flash]
+        GeminiCascade -. Rate Limit 429 .->|gemini-3.5-flash-lite| G3[Gemini 3.5 Lite]
         
-        GeminiPool -. Todas as chaves esgotadas .-> OpenRouter[🟢 OpenRouter SDK]
+        GeminiCascade -. Todas as chaves esgotadas .-> OpenRouter[🟢 OpenRouter SDK]
         OpenRouter --> Nemotron[NVIDIA Nemotron 3 Ultra 550B]
         
         G1 --> Response
@@ -90,9 +95,27 @@ flowchart TD
 
 ---
 
+### 2. Arquitetura do Pipeline RAG Híbrido (Python & FAISS)
+
+```mermaid
+flowchart LR
+    A[(🗄️ MySQL dwcopa)] -->|Extração de Fatos| B[Documentos Estruturados]
+    B -->|Ingestão Semântica| C[(FAISS Vector Store)]
+    B -->|Indexação Lexical| BM[Índice BM25]
+    
+    D([👤 Usuário / Streamlit]) -->|Pergunta| E[Retriever Híbrido]
+    C -->|Relevância Semântica| E
+    BM -->|Correspondência Exata| E
+    
+    E -->|Contexto Enriquecido| F[LangChain + Gemini Flash]
+    F -->|Resposta Fundamentada + Fontes| D
+```
+
+---
+
 ## 🗄️ Data Warehouse (Esquema Estrela)
 
-O banco de dados relacional foi modelado no padrão dimensional **Star Schema** sob o database `dwcopa`, garantindo alta performance analítica e facilidade de junção:
+O banco relacional utiliza a modelagem dimensional **Star Schema** sob o database `dwcopa`, garantindo integridade e alto desempenho analítico:
 
 ```mermaid
 erDiagram
@@ -144,70 +167,38 @@ erDiagram
     }
 ```
 
-### Principais Dimensões e Fatos:
-| Tabela | Descrição | Registros / Destaques |
-| :--- | :--- | :--- |
-| `dim_copa` | Edições das Copas do Mundo | 22 edições (1930 a 2022), anos e sedes oficiais |
-| `dim_jogador` | Atletas convocados na história | Mais de 6.270 atletas catalogados com ano de nascimento |
-| `dim_selecao` | Países e representações nacionais | Todas as seleções históricas (incluindo Iugoslávia, União Soviética, etc.) |
-| `dim_posicao` | Posições táticas em campo | FW (Atacante), MF (Meio-campo), DF (Defensor), GK (Goleiro) e compostas |
-| `fato_desempenho_jogador` | Fatos de desempenho individual | Mais de 7.800 linhas com gols, assistências, minutos, titularidade e faltas |
+### Detalhamento das Tabelas:
+- **`fato_desempenho_jogador`**: Mais de **7.880 registros individuais** de performance com minutagem, partidas, gols, assistências, pênaltis e cartões.
+- **`dim_copa`**: As 22 edições (1930 no Uruguai até 2022 no Catar), com anos e sedes.
+- **`dim_jogador`**: Cadastro histórico de mais de **6.270 atletas** e anos de nascimento.
+- **`dim_selecao`**: Todos os países e siglas (atuais e históricas como Iugoslávia e União Soviética).
+- **`dim_posicao`**: Posições táticas em campo (FW, MF, DF, GK e composições).
 
 ---
 
 ## 📊 Dashboard Power BI
 
-O repositório acompanha um painel analítico interativo completo desenvolvido no Power BI:
-- 📁 **Modelo Parametrizado**: [`Dashboard IAligator.pbit`](Dashboard%20IAligator.pbit)
-- 📑 **Relatório Exportado**: [`Dashboard IAligator.pdf`](Dashboard%20IAligator.pdf)
+O projeto disponibiliza um relatório executivo e analítico completo:
+- 📁 **Arquivo Parametrizado**: [`Dashboard IAligator.pbit`](Dashboard%20IAligator.pbit)
+- 📑 **Visualização em PDF**: [`Dashboard IAligator.pdf`](Dashboard%20IAligator.pdf)
 
-### Principais Visões Analíticas:
-1. **Painel Geral de Estatísticas**:
-   - Ranking histórico dos maiores artilheiros (Ronaldo Fenômeno, Gerd Müller, Klose, Just Fontaine, Mbappé).
-   - Volume histórico de gols por seleção (Brasil, Alemanha, Argentina, França, Itália).
-   - Curva etária de produtividade (gols marcados x idade dos atletas, demonstrando o ápice físico entre 24 e 27 anos).
-   - Evolução da média de idade dos elencos ao longo das décadas.
-   - Histórico de gols totais marcados por edição do torneio.
-2. **Matriz Detalhada de Atletas**:
-   - Cruzamento granular por edição, seleção, idade, minutos disputados, pênaltis e cartões disciplinares.
-
----
-
-## 🤖 Cascata de IAs e Resiliência
-
-Para contornar os rígidos limites de taxa (Rate Limits 429) e eventuais indisponibilidades de provedores em nuvem, o **IAligator** adota uma arquitetura em 4 camadas:
-
-```
-[Requisição do Usuário]
-         │
-         ▼
- 1. Cache em Memória (TTL 5 min) ────── (Hit) ───> Retorna Imediato (0ms)
-         │ (Miss)
-         ▼
- 2. Google Gemini Cascade
-    ├── gemini-3.6-flash (Chave Primária)
-    ├── gemini-3.5-flash (Chave Primária)
-    ├── gemini-3.5-flash-lite (Chave Primária)
-    └── [Se 429/503] ➔ Repete sequência com Chaves de Contingência
-         │ (Falha geral)
-         ▼
- 3. OpenRouter Contingency
-    └── NVIDIA Nemotron-3 Ultra 550B (API Secundária)
-         │ (Falha)
-         ▼
- 4. Modo Local Seguro (Resumo tabular direto sem LLM)
-```
-
-Na interface, badges estilizados indicam com precisão se a inferência veio do ecossistema Google Gemini ou do motor NVIDIA Nemotron.
+### Principais Análises Visuais:
+1. **Quadro Executivo de Desempenho**:
+   - Ranking histórico de artilheiros (Ronaldo 15, Gerd Müller 14, Klose 14, Just Fontaine 13, Mbappé 12).
+   - Acúmulo de gols por seleção (Brasil 224, Alemanha 210, Argentina 142, França 122, Itália 122).
+   - Volume de advertências disciplinares (cartões amarelos e vermelhos por país).
+   - Curva etária de produtividade (pico de gols entre 24 e 27 anos).
+   - Média de idade dos elencos ao longo das edições.
+2. **Matriz Detalhada por Atleta**:
+   - Tabela analítica com cruzamento de minutos, partidas como titular, gols e faltas.
 
 ---
 
-## 🚀 Instalação e Execução
+## 🚀 Como Executar o Projeto
 
-### Pré-requisitos
-- [Node.js](https://nodejs.org/) (versão 18 ou superior)
-- [MySQL Server](https://dev.mysql.com/downloads/) (versão 8.0 ou superior)
+### Pré-requisitos Comuns
 - [Git](https://git-scm.com/)
+- [MySQL Server](https://dev.mysql.com/downloads/) 8.0+
 
 ### 1. Clonar o Repositório
 ```bash
@@ -216,101 +207,118 @@ cd IAligator
 ```
 
 ### 2. Restaurar o Banco de Dados MySQL
-Importe o arquivo [`DWCopaPovoado.sql`](DWCopaPovoado.sql) no seu servidor MySQL:
+Importe o arquivo [`DWCopaPovoado.sql`](DWCopaPovoado.sql) no seu MySQL:
 ```bash
 mysql -u root -p < DWCopaPovoado.sql
 ```
-> O script criará o banco de dados `dwcopa` já estruturado e totalmente povoado.
+> O script cria o banco `dwcopa` estruturado e povoado com todos os dados históricos.
 
-### 3. Instalar Dependências
-```bash
-npm install
-```
+---
 
-### 4. Configurar as Variáveis de Ambiente
-Crie um arquivo `.env` na raiz do projeto baseado no [`.env.example`](.env.example):
-```env
-PORT=3001
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=sua_senha_mysql
-DB_NAME=dwcopa
+### Opção A: Executar a Aplicação Web (Node.js)
 
-# Chaves Gemini (chave principal e reservas separadas por vírgula)
-GEMINI_API_KEY=AIzaSy...
-GEMINI_API_KEYS=chave_reserva1,chave_reserva2
+1. **Instalar dependências**:
+   ```bash
+   npm install
+   ```
 
-# Chave OpenRouter (fallback secundário)
-OPENROUTER_API_KEY=sk-or-v1-...
-```
+2. **Configurar o arquivo `.env`**:
+   Crie o arquivo `.env` na raiz baseado no [`.env.example`](.env.example):
+   ```env
+   PORT=3001
+   DB_HOST=localhost
+   DB_PORT=3306
+   DB_USER=root
+   DB_PASSWORD=sua_senha
+   DB_NAME=dwcopa
 
-### 5. Iniciar a Aplicação
-```bash
-# Modo Produção
-npm start
+   GEMINI_API_KEY=sua_chave_gemini_aqui
+   GEMINI_API_KEYS=chave_reserva1,chave_reserva2
+   OPENROUTER_API_KEY=sua_chave_openrouter_aqui
+   ```
 
-# Modo Desenvolvimento (com hot-reload)
-npm run dev
-```
+3. **Iniciar o servidor**:
+   ```bash
+   # Modo Produção
+   npm start
 
-Abra o seu navegador e acesse:
-```
-http://localhost:3001
-```
+   # Modo Desenvolvimento (com hot-reload)
+   npm run dev
+   ```
+
+4. **Acessar**: Abra `http://localhost:3001` no navegador.
+
+---
+
+### Opção B: Executar o Pipeline RAG Híbrido (Python & Streamlit)
+
+1. **Criar e ativar o ambiente virtual**:
+   ```bash
+   # Com uv (recomendado):
+   uv venv .venv --python 3.11
+   uv pip install -r requirements.txt
+
+   # Ou com pip tradicional:
+   python -m venv .venv
+   .venv\Scripts\activate       # Windows
+   # source .venv/bin/activate  # Linux/Mac
+   pip install -r requirements.txt
+   ```
+
+2. **Configurar variáveis do Python**:
+   ```ini
+   MYSQL_HOST=localhost
+   MYSQL_PORT=3306
+   MYSQL_USER=root
+   MYSQL_PASSWORD=sua_senha
+   MYSQL_DATABASE=dwcopa
+   GOOGLE_API_KEY=sua_chave_gemini_aqui
+   FAISS_INDEX_PATH=./faiss_index
+   EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+   ```
+
+3. **Executar a ingestão vetorial (uma única vez)**:
+   ```bash
+   python ingest.py
+   ```
+
+4. **Testar no terminal (opcional)**:
+   ```bash
+   python test_rag.py "Quantos gols Pelé fez nas Copas?"
+   ```
+
+5. **Iniciar a interface Streamlit**:
+   ```bash
+   streamlit run app.py
+   ```
+   A interface abrirá automaticamente em `http://localhost:8501`.
 
 ---
 
 ## 💬 Exemplos de Perguntas para Testar
 
-Experimente fazer perguntas em linguagem natural como:
-
 - ⚽ *"Quem foi o artilheiro da Copa de 2002?"*
 - 🎯 *"Quais são os 5 maiores artilheiros da história das Copas?"*
 - 🟨 *"Qual seleção levou mais cartões amarelos em 2022?"*
-- 👶 *"Quem foi o jogador mais jovem a participar de uma Copa?"*
+- 👶 *"Quem foi o jogador mais jovem a participar de uma Copa do Mundo?"*
 - 👴 *"Quem é o jogador mais velho da história dos mundiais?"*
-- 🌍 *"Onde foram realizadas as Copas de 1970 e 1994?"*
 - ⏱️ *"Quem jogou mais minutos na Copa de 2018?"*
+- 🌍 *"Onde foram realizadas as Copas de 1970 e 1994?"*
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## 🛣️ Rotas da API & CLI
 
-| Camada | Tecnologia | Finalidade |
-| :--- | :--- | :--- |
-| **Frontend** | HTML5, CSS3 Moderno, JavaScript ES6+ | Interface conversacional reativa com badges SVG dinâmicos |
-| **Backend** | Node.js, Express.js | API RESTful, normalização léxica e orquestração de chamadas |
-| **Banco de Dados** | MySQL, mysql2/promise | Data Warehouse Star Schema otimizado para consultas analíticas |
-| **IA Principal** | Google GenAI SDK (`@google/genai`) | Modelos Gemini 3.6 Flash, 3.5 Flash e 3.5 Flash Lite |
-| **IA Contingência** | OpenRouter SDK (`@openrouter/sdk`) | Modelo NVIDIA Nemotron 3 Ultra 550B para alta disponibilidade |
-| **BI & Analytics** | Microsoft Power BI Desktop | Modelagem analítica, relatórios visuais e KPIs esportivos |
-
----
-
-## 🛣️ Rotas da API
-
-### `GET /`
-Renderiza a aplicação web do chat (`main.html`).
-
-### `GET /health`
-Verifica a saúde do serviço:
-```json
-{
-  "ok": true,
-  "message": "API funcionando"
-}
-```
-
-### `POST /api/chat`
-Envia uma pergunta do usuário para resolução:
-- **Body**:
+### API REST (Node.js)
+- `GET /` — Interface gráfica principal do chat.
+- `GET /health` — Verificação de status do servidor.
+- `POST /api/chat` — Envio de perguntas para resolução:
   ```json
   {
     "question": "Quantos gols o Ronaldo fez em 2002?"
   }
   ```
-- **Response**:
+  **Resposta:**
   ```json
   {
     "answer": "Ronaldo marcou 8 gols na Copa do Mundo de 2002.",
@@ -321,28 +329,40 @@ Envia uma pergunta do usuário para resolução:
   }
   ```
 
+### Linha de Comando (Python)
+- `python ingest.py` — Extrai os registros do Data Warehouse e constrói o índice FAISS.
+- `python test_rag.py "<sua pergunta>"` — Executa a inferência direta via terminal.
+
 ---
 
-## 📂 Estrutura de Arquivos
+## 📂 Estrutura do Repositório
 
 ```text
 IAligator/
 ├── assets/
-│   └── logo.png              # Ativos gráficos do mascote
+│   └── logo.png              # Ativos visuais do mascote
 ├── css/
 │   └── styles.css            # Estilos auxiliares
-├── Dashboard IAligator.pbit  # Modelo de relatório parametrizado do Power BI
-├── Dashboard IAligator.pdf   # Exportação visual completa do Dashboard Power BI
+├── faiss_index/              # Índice vetorial persistido (FAISS)
+├── src/                      # Módulos Python do Pipeline RAG
+│   ├── database.py           # Conexão MySQL e extração textual de fatos
+│   ├── rag_chain.py          # Cadeia LangChain e orquestração do Gemini
+│   └── vectorstore.py        # Indexação FAISS e recuperação híbrida BM25
+├── app.py                    # Interface Streamlit do assistente RAG
+├── ingest.py                 # Script de ETL e geração do índice vetorial
+├── test_rag.py               # Testes CLI do pipeline RAG
+├── requirements.txt          # Dependências do ecossistema Python
+├── Dashboard IAligator.pbit  # Template parametrizado do Power BI
+├── Dashboard IAligator.pdf   # Relatório visual completo do Dashboard Power BI
 ├── DWCopaPovoado.sql         # Dump completo do Data Warehouse dwcopa
-├── logo.png                  # Logotipo principal do IAligator
-├── main.html                 # Estrutura da interface do chat
-├── package.json              # Metadados e dependências do projeto Node.js
-├── README.md                 # Documentação oficial do projeto
-├── script.js                 # Lógica do cliente, consumo da API e renderização de badges
-├── server.js                 # Servidor Express, NLP, consultas SQL e cascata de IA
-├── styles.css                # Estilos visuais e temas da interface
-├── .env.example              # Modelo de configuração das variáveis de ambiente
-└── .gitignore                # Regras de exclusão do Git
+├── logo.png                  # Logotipo principal da aplicação
+├── main.html                 # Interface HTML do chat web
+├── script.js                 # Lógica cliente web e renderização de badges
+├── server.js                 # Servidor Express, NLP léxico e cascata de IA
+├── styles.css                # Estilização moderna da interface web
+├── package.json              # Dependências do ecossistema Node.js
+├── .env.example              # Modelo de configuração de variáveis
+└── README.md                 # Documentação unificada do projeto
 ```
 
 ---
