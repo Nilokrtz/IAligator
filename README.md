@@ -64,24 +64,24 @@ O projeto foi projetado com duas frentes complementares de utilização:
 ```mermaid
 flowchart TD
     User([👤 Usuário]) <--> UI[💻 Chat Interface - HTML5 / CSS3 / JS]
-    UI <-->|POST /api/chat| Server[🚀 Servidor Express]
+    UI <-->|"POST /api/chat"| Server[🚀 Servidor Express]
 
     subgraph Core ["Processamento de Linguagem & Banco"]
         Server --> NLP[🔍 Normalizador & Extrator Léxico]
-        NLP -->|SQL Otimizado| DB[(🗄️ MySQL Data Warehouse\ndwcopa)]
-        DB -->|Contexto Tabular| Grounding[🧩 Grounding & Prompt Engine]
+        NLP -->|"SQL Otimizado"| DB[("🗄️ MySQL Data Warehouse (dwcopa)")]
+        DB -->|"Contexto Tabular"| Grounding[🧩 Grounding & Prompt Engine]
     end
 
     subgraph Intelligence ["Cascata de Resiliência Multi-LLM"]
         Grounding --> Cache{⚡ Cache Hit?}
-        Cache -- Sim --> Response[💬 Resposta Formatada + Badge]
-        Cache -- Não --> GeminiCascade[✨ Google Gemini Cascade]
+        Cache -- "Sim" --> Response[💬 Resposta Formatada + Badge]
+        Cache -- "Não" --> GeminiCascade[✨ Google Gemini Cascade]
         
-        GeminiCascade -->|gemini-3.6-flash| G1[Gemini 3.6 Flash]
-        GeminiCascade -. Rate Limit 429 .->|gemini-3.5-flash| G2[Gemini 3.5 Flash]
-        GeminiCascade -. Rate Limit 429 .->|gemini-3.5-flash-lite| G3[Gemini 3.5 Lite]
+        GeminiCascade -->|"1º gemini-3.6-flash"| G1[Gemini 3.6 Flash]
+        GeminiCascade -.->|"Fallback gemini-3.5-flash"| G2[Gemini 3.5 Flash]
+        GeminiCascade -.->|"Fallback gemini-3.5-flash-lite"| G3[Gemini 3.5 Lite]
         
-        GeminiCascade -. Todas as chaves esgotadas .-> OpenRouter[🟢 OpenRouter SDK]
+        GeminiCascade -.->|"Contingência OpenRouter"| OpenRouter[🟢 OpenRouter SDK]
         OpenRouter --> Nemotron[NVIDIA Nemotron 3 Ultra 550B]
         
         G1 --> Response
